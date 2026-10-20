@@ -637,7 +637,11 @@
     {"name": "令", "faction": "剪刀手", "role": "控场", "gender": "男", "age": 24, "weapon": "破晓", "wtype": "精确射手步枪", "height": 184, "birthday": "1月5日", "hair": "黑色", "pop": 1},
     {"name": "香奈美", "faction": "剪刀手", "role": "先锋", "gender": "女", "age": 19, "weapon": "谢幕曲", "wtype": "狙击步枪", "height": 161, "birthday": "1月27日", "hair": "粉色", "pop": 5},
     {"name": "诺诺", "faction": "剪刀手", "role": "先锋", "gender": "女", "age": 15, "weapon": "雨晦", "wtype": "微型冲锋枪", "height": 150, "birthday": "10月24日", "hair": "白色", "pop": 5},
-    {"name": "玛拉", "faction": "剪刀手", "role": "决斗", "gender": "女", "age": 36, "weapon": "夜镰", "wtype": "微型冲锋枪", "height": 172, "birthday": "4月1日", "hair": "绿色", "pop": 1}
+    {"name": "玛拉", "faction": "剪刀手", "role": "决斗", "gender": "女", "age": 36, "weapon": "夜镰", "wtype": "微型冲锋枪", "height": 172, "birthday": "4月1日", "hair": "绿色", "pop": 1},
+    {"name": "忧雾", "faction": "欧泊", "role": "控场", "gender": "女", "age": 18, "weapon": "绝对执行", "wtype": "自动步枪", "height": 162, "birthday": "3月22日", "hair": "白色", "pop": 4},
+    {"name": "拉薇", "faction": "剪刀手", "role": "先锋", "gender": "女", "age": 21, "weapon": "影袭", "wtype": "自动步枪", "height": 171, "birthday": "10月29日", "hair": "黑色", "pop": 4},
+    {"name": "梅瑞狄斯", "faction": "剪刀手", "role": "控场", "gender": "女", "age": 19, "weapon": "隼", "wtype": "自动步枪", "height": 166, "birthday": "8月28日", "hair": "棕色", "pop": 3},
+    {"name": "珐格兰丝", "faction": "剪刀手", "role": "支援", "gender": "女", "age": 22, "weapon": "绽放", "wtype": "自动步枪", "height": 172, "birthday": "9月10日", "hair": "金色", "pop": 3}
   ];
 
   var FACTIONS = ["乌尔比诺", "剪刀手", "欧泊"];
@@ -723,18 +727,17 @@
     refGrid.innerHTML = h;
   }
 
-  /* 谜面只给「定位 + 武器类型」——玩家真正记得住的两个属性。
-     数据验证：这两项把 20 人分成 14 组，最大一组 3 人，
-     能收窄范围但猜不出答案，剩下的靠玩家自己推。
-     刻意不给：武器名（唯一，等于给答案）、生日（唯一）、年龄+身高（唯一）、
-     人气星级（本来就不是官方数据，不能拿来出题）。 */
+  /* 谜面线索必须与「要答的字段」完全不重叠，否则等于白送分。
+       轻松（4命）要答：阵营 / 角色名 / 发色  -> 线索可用 定位、武器类型、性别
+       硬核（3命）要答：阵营 / 角色名 / 发色 / 武器类型 / 人气
+                       -> 线索绝不能再给武器类型，只给 定位、性别
+     数据验证（tools/check-clues.py）：
+       定位+性别 把 20 人分成 8 组，最大组 7 人 —— 收窄但不泄底。 */
   function renderRiddle() {
     var c = current;
-    var clues = [
-      ["定位", c.role],
-      ["武器类型", c.wtype]
-    ];
-    if (!isHard) clues.push(["性别", c.gender]);
+    var clues = [["定位", c.role], ["性别", c.gender]];
+    // 轻松模式多送一条武器类型（它不在该模式的答案里）
+    if (!isHard) clues.push(["武器类型", c.wtype]);
     var h = "";
     for (var i = 0; i < clues.length; i++) {
       h += '<div class="clue"><span class="k">' + clues[i][0] +
