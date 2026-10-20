@@ -1410,20 +1410,30 @@
     submitBtn.disabled = true;
   }
 
-  function markAnswers(c) {
+  /* 标记作答结果。
+     revealCorrect = true 时把正确选项标绿（每日挑战/游戏结束：反正要公布答案）；
+     revealCorrect = false 时只把玩家选错的标红，不暴露正确答案——
+     3 条命/4 条命模式还有下一轮，提前给答案就没得玩了。 */
+  function markAnswers(c, revealCorrect) {
     var want = { faction: c.faction, hair: c.hair };
     if (isHard) { want.wtype = c.wtype; want.pop = String(c.pop); }
     var all = inputGroup.querySelectorAll(".choice");
     for (var i = 0; i < all.length; i++) {
       var b = all[i];
-      if (want[b.dataset.field] === b.dataset.value) b.classList.add("correct");
-      else if (b.getAttribute("aria-pressed") === "true") b.classList.add("wrong");
+      // 先清掉上一轮残留的标记，避免答对后还挂着红色
+      b.classList.remove("correct", "wrong");
+      var isRight = want[b.dataset.field] === b.dataset.value;
+      var isPicked = b.getAttribute("aria-pressed") === "true";
+      if (isRight && revealCorrect) b.classList.add("correct");
+      // 只标红「玩家选了而且是错的」；公布答案时就不必再标红，免得一片红绿混杂
+      else if (!isRight && isPicked && !revealCorrect) b.classList.add("wrong");
     }
     var nameEl = $("nameInput");
     if (nameEl) {
-      nameEl.classList.remove("picked");
-      if (picked.name === c.name) nameEl.classList.add("correct");
-      else nameEl.classList.add("wrong");
+      nameEl.classList.remove("picked", "correct", "wrong");
+      var nameRight = picked.name === c.name;
+      if (revealCorrect && nameRight) nameEl.classList.add("correct");
+      else if (!nameRight && !revealCorrect) nameEl.classList.add("wrong");
     }
   }
 
@@ -1525,7 +1535,7 @@
       if (streak > bestStreak) bestStreak = streak;
       currentScoreEl.textContent = score;
       renderTitle();
-      markAnswers(current);
+      markAnswers(current, true);   // 全对，标绿无所谓
       disableChoices();
       showReveal(current);   // 猜对：中央弹出立绘
       SFX.correct(streak);
@@ -1543,7 +1553,12 @@
       attempts--;
       streak = 0;
       renderAttempts();
-      markAnswers(current);
+      // 只有「这一题彻底结束」时才公布正确答案：
+      //   每日挑战 —— 答错立即公布，然后进下一题
+      //   普通模式最后一条命用完 —— 公布，因为不再有下一轮
+      // 还有剩余命时只标红错选，不给正确答案
+      var willEndThisQuestion = isDaily || attempts <= 0;
+      markAnswers(current, willEndThisQuestion);
       // 答错不弹立绘：立绘是「猜对」的奖励
       SFX.wrong();
       updateComboVisual();
