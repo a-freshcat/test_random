@@ -414,39 +414,89 @@ HTML = u"""<!DOCTYPE html>
     content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
     background: linear-gradient(180deg, var(--accent), transparent);
   }
-  .riddle-body { display: flex; gap: 12px; align-items: stretch; }
-  .riddle-text { flex: 1 1 auto; min-width: 0; }
 
-  /* 立绘：未答对时是剪影+问号，答对后揭晓 */
-  .portrait {
-    position: relative; flex: 0 0 auto;
-    width: 96px; height: 132px;
-    border-radius: 12px; overflow: hidden;
-    border: 1px solid var(--line-2);
-    background: radial-gradient(circle at 50% 30%, #202838, #0e1219 75%);
+  /* ==================================================== 立绘揭晓（中央弹出）
+     平时完全不出现，只有猜对时才从屏幕中央弹出角色立绘。 */
+  .reveal {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    opacity: 0; visibility: hidden;
+    transition: opacity .22s ease, visibility .22s;
   }
-  .portrait img {
-    width: 100%; height: 100%; object-fit: cover; object-position: top center;
+  .reveal.on { opacity: 1; visibility: visible; }
+  .reveal::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(8,10,14,.55), rgba(8,10,14,.88) 70%);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+
+  .reveal-card {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center;
+    transform: scale(.72) translateY(24px);
+    opacity: 0;
+    transition: transform .42s cubic-bezier(.16,1.1,.3,1), opacity .3s ease;
+    will-change: transform;
+  }
+  .reveal.on .reveal-card {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+
+  .reveal-glow {
+    position: absolute; inset: -14% -8% -4% -8%;
+    background: radial-gradient(ellipse at 50% 45%, rgba(255,201,60,.35), rgba(255,107,53,.16) 45%, transparent 72%);
+    filter: blur(22px);
+    z-index: -1;
+    animation: revealPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes revealPulse {
+    0%, 100% { opacity: .75; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.05); }
+  }
+
+  .reveal-img {
     display: block;
-    filter: brightness(.25) saturate(0) blur(3px);
-    opacity: .85;
-    transform: scale(1.2);
-    transition: filter .5s ease, opacity .5s ease, transform .5s ease;
+    max-height: min(58vh, 430px);
+    max-width: min(76vw, 300px);
+    width: auto; height: auto;
+    border-radius: 14px;
+    border: 2px solid rgba(255,201,60,.5);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.08) inset,
+      0 26px 60px -18px rgba(0,0,0,.95),
+      0 0 46px -10px rgba(255,201,60,.55);
+    object-fit: contain;
   }
-  .portrait.revealed img {
-    filter: none; opacity: 1; transform: scale(1);
+
+  .reveal-meta { margin-top: .7rem; text-align: center; }
+  .reveal-name {
+    font-size: 1.25rem; font-weight: 600; letter-spacing: .06em;
+    background: linear-gradient(100deg, #fff, var(--accent-2) 60%, var(--accent));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 14px rgba(255,201,60,.4));
   }
-  .portrait-veil {
-    position: absolute; inset: 0;
-    display: grid; place-items: center;
-    font-family: var(--font-num); font-size: 2rem; font-weight: 700;
-    color: rgba(255,201,60,.75);
-    text-shadow: 0 0 20px rgba(255,201,60,.65);
-    background: radial-gradient(circle at 50% 50%, rgba(10,12,16,.15), rgba(10,12,16,.55));
-    transition: opacity .3s ease;
+  .reveal-sub {
+    margin-top: .22rem; font-size: .7rem; color: var(--text-2);
+    letter-spacing: .1em;
   }
-  .portrait.revealed .portrait-veil { opacity: 0; }
-  .portrait.revealed { border-color: rgba(52,217,155,.5); box-shadow: 0 0 22px -6px rgba(52,217,155,.65); }
+  .reveal-hint {
+    margin-top: .55rem; font-size: .62rem; color: var(--dim); letter-spacing: .12em;
+  }
+
+  /* 卡片周围的星芒 */
+  .reveal.on .reveal-card::after {
+    content: ""; position: absolute; inset: -30%;
+    background:
+      conic-gradient(from 0deg, transparent 0deg, rgba(255,201,60,.12) 6deg, transparent 12deg),
+      conic-gradient(from 90deg, transparent 0deg, rgba(255,107,53,.1) 5deg, transparent 10deg);
+    z-index: -1; opacity: .8;
+    animation: spinSlow 18s linear infinite;
+  }
+  @keyframes spinSlow { to { transform: rotate(360deg); } }
   .riddle-head {
     display: flex; align-items: center; gap: .45rem;
     font-size: .66rem; color: var(--accent); letter-spacing: .13em;
@@ -813,6 +863,18 @@ HTML = u"""<!DOCTYPE html>
 
 <div class="combo-vignette" id="comboVignette"></div>
 
+<!-- 立绘揭晓：猜对后从界面中央弹出 -->
+<div class="reveal" id="revealLayer" aria-hidden="true">
+  <div class="reveal-card" id="revealCard">
+    <div class="reveal-glow"></div>
+    <img class="reveal-img" id="revealImg" alt="" />
+    <div class="reveal-meta">
+      <div class="reveal-name" id="revealName"></div>
+      <div class="reveal-sub" id="revealSub"></div>
+    </div>
+  </div>
+</div>
+
 <div id="difficultyOverlay">
   <div class="difficulty-box">
     <img class="crest" src="data:image/jpeg;base64,__LOGO__" alt="" />
@@ -871,16 +933,8 @@ HTML = u"""<!DOCTYPE html>
     </div>
 
     <div class="riddle">
-      <div class="riddle-body">
-        <div class="riddle-text">
-          <div class="riddle-head"><span class="dot"></span>谜面 · 这位超弦体是</div>
-          <div class="clue-list" id="riddleText"></div>
-        </div>
-        <div class="portrait" id="portrait">
-          <img id="portraitImg" alt="" />
-          <div class="portrait-veil" id="portraitVeil">?</div>
-        </div>
-      </div>
+      <div class="riddle-head"><span class="dot"></span>谜面 · 这位超弦体是</div>
+      <div class="clue-list" id="riddleText"></div>
     </div>
 
     <div class="daily-progress" id="dailyProgress" style="display:none">
@@ -1186,28 +1240,40 @@ __CHARS__
     hintArea.innerHTML = isHard
       ? '<span class="hint-text">🔍 宗教度提示：角色人气也是衡量的标准！</span>'
       : '<span class="hint-text">💡 经典模式，无额外提示</span>';
-    renderPortrait(false);
+    // 谜面区不显示任何立绘，避免泄露人物轮廓
   }
 
-  /* 立绘：默认是模糊剪影 + 问号，答对后揭晓原图 */
-  function renderPortrait(reveal) {
-    var box = $("portrait"), img = $("portraitImg"), veil = $("portraitVeil");
-    if (!box || !img) return;
-    var src = current && current.art ? current.art : null;
-    if (!src) {
-      box.style.display = "none";
-      return;
-    }
-    box.style.display = "";
-    img.src = src;
-    img.alt = reveal ? (current ? current.name : "") : "";
-    if (reveal) {
-      box.classList.add("revealed");
-      if (veil) veil.textContent = "";
-    } else {
-      box.classList.remove("revealed");
-      if (veil) veil.textContent = "?";
-    }
+  /* ================================================ 立绘揭晓（中央弹出）
+     谜面区不再显示任何立绘——那会泄露人物轮廓。
+     只有猜对时，才从屏幕中央弹出角色立绘。 */
+  var revealTimer = null;
+
+  function showReveal(c) {
+    if (!c || !c.art) return;
+    var layer = $("revealLayer"), img = $("revealImg");
+    if (!layer || !img) return;
+
+    img.src = c.art;
+    img.alt = c.name;
+    $("revealName").textContent = c.name;
+    $("revealSub").textContent = c.faction + " · " + c.role + " · " + c.wtype;
+
+    // 强制重排，保证重复揭晓时动画能重播
+    layer.classList.remove("on");
+    void layer.offsetWidth;
+    layer.classList.add("on");
+    layer.setAttribute("aria-hidden", "false");
+
+    if (revealTimer) clearTimeout(revealTimer);
+    revealTimer = setTimeout(hideReveal, 1900);
+  }
+
+  function hideReveal() {
+    var layer = $("revealLayer");
+    if (!layer) return;
+    layer.classList.remove("on");
+    layer.setAttribute("aria-hidden", "true");
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
   }
 
   function makePills(label, field, options, render, required) {
@@ -1510,7 +1576,7 @@ __CHARS__
       renderTitle();
       markAnswers(current);
       disableChoices();
-      renderPortrait(true);
+      showReveal(current);   // 猜对：中央弹出立绘
       SFX.correct(streak);
       if (streak >= 3) {
         showComboBurst(streak);
@@ -1520,13 +1586,14 @@ __CHARS__
       var combo = streak >= 3 ? " 🔥" + streak + " 连击！" : "";
       message.textContent = "🎉 完美！就是 " + current.name + " 喵～" + combo;
       message.className = "message success";
-      setTimeout(loadNewRound, 1000);
+      // 等立绘播完再进下一题，否则立绘会被新回合打断
+      setTimeout(loadNewRound, 2100);
     } else {
       attempts--;
       streak = 0;
       renderAttempts();
       markAnswers(current);
-      renderPortrait(true);   // 答错也揭晓，反正答案马上就说出来了
+      // 答错不弹立绘：立绘是「猜对」的奖励
       SFX.wrong();
       updateComboVisual();
 
@@ -1563,6 +1630,7 @@ __CHARS__
   }
 
   function restartGame() {
+    hideReveal();
     if (score > 0) commitScore();
     score = 0; streak = 0; bestStreak = 0;
     gameOver = false; answered = false;
@@ -1605,6 +1673,7 @@ __CHARS__
 
   /* 返回首页：结束当前局（有分就记），回到难度选择页 */
   $("backBtn").addEventListener("click", function () {
+    hideReveal();
     if (score > 0) commitScore();
     gameOver = true;
     answered = false;
