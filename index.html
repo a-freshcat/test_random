@@ -269,7 +269,13 @@
     border: 1px solid rgba(255,201,60,.24);
     color: var(--accent-2); letter-spacing: .03em; white-space: nowrap;
   }
-  .attempts { display: flex; gap: 3px; font-size: .92rem; flex: 0 0 auto; }
+  .attempts { display: flex; gap: 3px; font-size: .92rem; flex: 0 0 auto; align-items: center; }
+  .daily-tag {
+    font-size: .64rem; letter-spacing: .1em; color: var(--info);
+    padding: .18rem .6rem; border-radius: 999px;
+    background: rgba(90,169,255,.1); border: 1px solid rgba(90,169,255,.25);
+    white-space: nowrap;
+  }
   .heart { animation: heartPop .3s cubic-bezier(.2,1.4,.4,1); display: inline-block; }
   @keyframes heartPop { from { transform: scale(.5); opacity: 0 } to { transform: scale(1); opacity: 1 } }
 
@@ -317,6 +323,28 @@
   .hint-area {
     font-size: .67rem; color: var(--dim); margin-bottom: .75rem;
     letter-spacing: .03em; display: flex; align-items: center; gap: .35rem;
+  }
+
+  /* 每日挑战进度条 */
+  .daily-progress { margin: 0 0 .7rem; }
+  .dp-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: .66rem; color: var(--muted); letter-spacing: .08em;
+    margin-bottom: .3rem;
+  }
+  .dp-top #dailyStep {
+    font-family: var(--font-num); color: var(--info); font-size: .78rem;
+  }
+  .dp-track {
+    height: 4px; border-radius: 2px; overflow: hidden;
+    background: rgba(255,255,255,.06);
+  }
+  .dp-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--info), var(--accent-2));
+    border-radius: 2px;
+    transition: width .4s cubic-bezier(.2,.8,.3,1);
+    box-shadow: 0 0 10px rgba(90,169,255,.5);
   }
 
   /* ---------------------------------------------------------- 作答 */
@@ -691,6 +719,11 @@
       <div class="clue-list" id="riddleText"></div>
     </div>
 
+    <div class="daily-progress" id="dailyProgress" style="display:none">
+      <div class="dp-top"><span>📅 今日进度</span><span id="dailyStep">1 / 10</span></div>
+      <div class="dp-track"><div class="dp-bar" id="dailyBar"></div></div>
+    </div>
+
     <div class="hint-area" id="hintArea"></div>
     <div class="input-group" id="inputGroup"></div>
 
@@ -954,6 +987,11 @@
 
   /* ------------------------------------------------------------ 渲染 */
   function renderAttempts() {
+    // 每日挑战没有「命」的概念（答错继续下一题），这里改为显示进度
+    if (isDaily) {
+      attemptsDisplay.innerHTML = '<span class="daily-tag">📅 每日</span>';
+      return;
+    }
     var h = "";
     for (var i = 0; i < maxAttempts; i++) {
       h += '<span class="heart" style="animation-delay:' + (i * 40) + 'ms">' +
@@ -1240,12 +1278,29 @@
     message.className = "message";
     submitBtn.disabled = false;
     updateComboVisual();
+    updateProgress();
+  }
+
+  /* 每日挑战的进度条：第几题 / 共几题 */
+  function updateProgress() {
+    var el = $("dailyProgress");
+    if (!el) return;
+    if (!isDaily) { el.style.display = "none"; return; }
+    el.style.display = "flex";
+    var done = Math.min(dailyIndex - (current ? 1 : 0), DAILY_SIZE);
+    $("dailyStep").textContent = Math.max(1, dailyIndex) + " / " + DAILY_SIZE;
+    $("dailyBar").style.width = Math.round((Math.max(0, dailyIndex - 1) / DAILY_SIZE) * 100) + "%";
   }
 
   function finishDaily() {
     gameOver = true;
     disableChoices();
-    message.textContent = "📅 今日挑战完成！得分 " + score + " / " + DAILY_SIZE + "，明天再来喵～";
+    var wrong = DAILY_SIZE - score;
+    var rank = score >= 10 ? "满分卡奴！" :
+               score >= 8 ? "相当可以" :
+               score >= 5 ? "还行吧" : "再练练喵";
+    message.textContent = "📅 今日挑战完成！" + score + " / " + DAILY_SIZE +
+      " 题（错 " + wrong + " 题）· " + rank + " · 明天再来～";
     message.className = "message success";
     commitScore();
     SFX.daily();
@@ -1310,7 +1365,17 @@
       SFX.wrong();
       updateComboVisual();
 
-      if (attempts <= 0) {
+      if (isDaily) {
+        // 每日挑战：答错不结束，直接进下一题，最后统一结算
+        answered = true;
+        disableChoices();
+        message.textContent = "❌ 错了喵～正确答案：" + current.name + " · " + current.faction +
+          " · " + current.hair;
+        message.className = "message fail";
+        setTimeout(function () {
+          if (!gameOver) { loadNewRound(); }
+        }, 1400);
+      } else if (attempts <= 0) {
         answered = true;
         gameOver = true;
         disableChoices();
@@ -1351,6 +1416,7 @@
 
     isDaily = (mode === "daily");
     isHard = (mode === 3);
+    // 每日挑战是「10 题连答」，没有命的概念；maxAttempts 只用于普通模式
     maxAttempts = isDaily ? 1 : mode;
     score = 0; streak = 0; bestStreak = 0;
     gameOver = false; answered = false;
