@@ -35,7 +35,7 @@
 
 角色数据全部来自 **[卡拉彼丘 WIKI](https://wiki.biligame.com/klbq/)**，通过 MediaWiki API 抓取 `{{超弦体}}` 模板：
 
-- 阵营、定位、性别、年龄、身高、生日、武器名称与类型 —— **20 个角色，字段全齐**
+- 阵营、定位、性别、年龄、身高、生日、武器名称与类型 —— **24 个角色，字段全齐**
 - 发色和人气星级 WIKI 没有结构化字段，为手工维护
 
 抓取脚本：`tools/fetch-wiki.mjs`（带限流重试，站点会返回 HTTP 567）
@@ -69,14 +69,14 @@ node tools/fetch-wiki.mjs data/chars.json
 
 ```
 index.html              游戏本体（自包含单文件）
-data/chars.json         20 个角色的 WIKI 数据
+data/chars.json         24 个角色的 WIKI 数据
 tools/fetch-wiki.mjs    数据抓取脚本
 tools/build.py          从 chars.json 生成 index.html
 ```
 
 ## 已知限制
 
-- **只有 20 个角色**，WIKI 上还有忧雾、拉薇、梅瑞狄斯、珐格兰丝等未收录
+- **24 个角色**，WIKI 上还有其它超弦体未收录，可按同样方式补充
 - 人气星级是主观的，不是官方数据
 - 发色按立绘目测，可能有争议
 - 排行榜是本地的，换设备就没了
