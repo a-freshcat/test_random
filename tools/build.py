@@ -14,12 +14,33 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 ASSETS = os.path.join(ROOT, "assets")
 DATA = os.path.join(ROOT, "data")
+ART = os.path.join(ASSETS, "art")
 
 with io.open(os.path.join(ASSETS, "logo.b64"), "r", encoding="utf-8") as fh:
     LOGO = fh.read().strip()
 
 with io.open(os.path.join(DATA, "chars.json"), "r", encoding="utf-8") as fh:
     RAW = json.load(fh)
+
+# ---------------------------------------------------------------- 立绘
+# assets/art/<角色>.webp 由 tools/fetch-art.mjs 抓取并压缩。
+# 构建时内联成 data URI，保证 index.html 依然是单文件。
+def load_art(name):
+    for ext, mime in (("webp", "image/webp"), ("jpg", "image/jpeg"), ("png", "image/png")):
+        p = os.path.join(ART, name + "." + ext)
+        if os.path.exists(p):
+            import base64
+            with open(p, "rb") as fh:
+                b64 = base64.b64encode(fh.read()).decode("ascii")
+            return "data:" + mime + ";base64," + b64
+    return None
+
+ART_URIS = {}
+if os.path.isdir(ART):
+    for fn in os.listdir(ART):
+        stem, _, ext = fn.rpartition(".")
+        if ext.lower() in ("webp", "jpg", "jpeg", "png"):
+            ART_URIS[stem] = load_art(stem)
 
 HAIR = {
     "白墨": "绿色", "星绘": "白色", "奥黛丽": "金色", "玛德蕾娜": "棕色",
@@ -62,6 +83,7 @@ for c in RAW:
         "birthday": c.get("生日", ""),
         "hair": HAIR.get(name, "未知"),
         "pop": POP.get(name, 3),
+        "art": ART_URIS.get(name),
     })
 
 FACTIONS = sorted({c["faction"] for c in CHARS})
@@ -325,6 +347,23 @@ HTML = u"""<!DOCTYPE html>
 
   /* ---------------------------------------------------------- 顶栏 */
   .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: .9rem; }
+  .back-btn {
+    flex: 0 0 auto;
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    font-family: inherit; font-size: .95rem; line-height: 1;
+    color: var(--muted);
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--line); border-radius: 9px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s, transform .15s;
+  }
+  .back-btn:hover {
+    color: var(--accent); border-color: rgba(255,107,53,.45);
+    background: rgba(255,107,53,.1); transform: translateX(-2px);
+  }
+  .back-btn:active { transform: translateX(-1px) scale(.95); }
+  .back-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .avatar-wrap { position: relative; flex: 0 0 auto; }
   .avatar-wrap::after {
     content: ""; position: absolute; inset: -3px; border-radius: 50%;
@@ -375,6 +414,39 @@ HTML = u"""<!DOCTYPE html>
     content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
     background: linear-gradient(180deg, var(--accent), transparent);
   }
+  .riddle-body { display: flex; gap: 12px; align-items: stretch; }
+  .riddle-text { flex: 1 1 auto; min-width: 0; }
+
+  /* 立绘：未答对时是剪影+问号，答对后揭晓 */
+  .portrait {
+    position: relative; flex: 0 0 auto;
+    width: 96px; height: 132px;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--line-2);
+    background: radial-gradient(circle at 50% 30%, #202838, #0e1219 75%);
+  }
+  .portrait img {
+    width: 100%; height: 100%; object-fit: cover; object-position: top center;
+    display: block;
+    filter: brightness(.25) saturate(0) blur(3px);
+    opacity: .85;
+    transform: scale(1.2);
+    transition: filter .5s ease, opacity .5s ease, transform .5s ease;
+  }
+  .portrait.revealed img {
+    filter: none; opacity: 1; transform: scale(1);
+  }
+  .portrait-veil {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-family: var(--font-num); font-size: 2rem; font-weight: 700;
+    color: rgba(255,201,60,.75);
+    text-shadow: 0 0 20px rgba(255,201,60,.65);
+    background: radial-gradient(circle at 50% 50%, rgba(10,12,16,.15), rgba(10,12,16,.55));
+    transition: opacity .3s ease;
+  }
+  .portrait.revealed .portrait-veil { opacity: 0; }
+  .portrait.revealed { border-color: rgba(52,217,155,.5); box-shadow: 0 0 22px -6px rgba(52,217,155,.65); }
   .riddle-head {
     display: flex; align-items: center; gap: .45rem;
     font-size: .66rem; color: var(--accent); letter-spacing: .13em;
@@ -784,6 +856,7 @@ HTML = u"""<!DOCTYPE html>
   <div class="main-area" id="mainArea">
 
     <div class="topbar">
+      <button class="back-btn" id="backBtn" title="返回首页" aria-label="返回首页">←</button>
       <div class="avatar-wrap">
         <img class="logo" src="data:image/jpeg;base64,__LOGO__" alt="" />
       </div>
@@ -798,8 +871,16 @@ HTML = u"""<!DOCTYPE html>
     </div>
 
     <div class="riddle">
-      <div class="riddle-head"><span class="dot"></span>谜面 · 这位超弦体是</div>
-      <div class="clue-list" id="riddleText"></div>
+      <div class="riddle-body">
+        <div class="riddle-text">
+          <div class="riddle-head"><span class="dot"></span>谜面 · 这位超弦体是</div>
+          <div class="clue-list" id="riddleText"></div>
+        </div>
+        <div class="portrait" id="portrait">
+          <img id="portraitImg" alt="" />
+          <div class="portrait-veil" id="portraitVeil">?</div>
+        </div>
+      </div>
     </div>
 
     <div class="daily-progress" id="dailyProgress" style="display:none">
@@ -1105,6 +1186,28 @@ __CHARS__
     hintArea.innerHTML = isHard
       ? '<span class="hint-text">🔍 宗教度提示：角色人气也是衡量的标准！</span>'
       : '<span class="hint-text">💡 经典模式，无额外提示</span>';
+    renderPortrait(false);
+  }
+
+  /* 立绘：默认是模糊剪影 + 问号，答对后揭晓原图 */
+  function renderPortrait(reveal) {
+    var box = $("portrait"), img = $("portraitImg"), veil = $("portraitVeil");
+    if (!box || !img) return;
+    var src = current && current.art ? current.art : null;
+    if (!src) {
+      box.style.display = "none";
+      return;
+    }
+    box.style.display = "";
+    img.src = src;
+    img.alt = reveal ? (current ? current.name : "") : "";
+    if (reveal) {
+      box.classList.add("revealed");
+      if (veil) veil.textContent = "";
+    } else {
+      box.classList.remove("revealed");
+      if (veil) veil.textContent = "?";
+    }
   }
 
   function makePills(label, field, options, render, required) {
@@ -1407,6 +1510,7 @@ __CHARS__
       renderTitle();
       markAnswers(current);
       disableChoices();
+      renderPortrait(true);
       SFX.correct(streak);
       if (streak >= 3) {
         showComboBurst(streak);
@@ -1422,6 +1526,7 @@ __CHARS__
       streak = 0;
       renderAttempts();
       markAnswers(current);
+      renderPortrait(true);   // 答错也揭晓，反正答案马上就说出来了
       SFX.wrong();
       updateComboVisual();
 
@@ -1497,6 +1602,21 @@ __CHARS__
   $("diffDaily").addEventListener("click", function () { startGame("daily"); });
   submitBtn.addEventListener("click", handleSubmit);
   restartBtn.addEventListener("click", restartGame);
+
+  /* 返回首页：结束当前局（有分就记），回到难度选择页 */
+  $("backBtn").addEventListener("click", function () {
+    if (score > 0) commitScore();
+    gameOver = true;
+    answered = false;
+    difficultyChosen = false;
+    $("gameContainer").style.display = "none";
+    $("difficultyOverlay").classList.remove("hidden");
+    var ov = $("difficultyOverlay");
+    ov.style.animation = "none";
+    void ov.offsetWidth;
+    ov.style.animation = "";
+    vignette.classList.remove("on", "hot");
+  });
   $("clearRankBtn").addEventListener("click", function () {
     if (confirm("确定要清空所有排行榜记录吗喵？")) {
       try { localStorage.removeItem(rankKey()); } catch (e) {}
