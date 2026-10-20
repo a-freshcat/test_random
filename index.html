@@ -616,6 +616,39 @@
   .message.fail    { color: var(--bad); }
   .message.info    { color: var(--info); }
 
+  /* 失败后的答案卡：把完整答案摆出来，停留到玩家自己点重开 */
+  .answer-card {
+    margin-top: .2rem;
+    padding: 1rem 1.15rem;
+    border-radius: 0 18px 0 18px;
+    background: linear-gradient(160deg, rgba(255,95,109,.13), rgba(255,95,109,.04));
+    border: 1px solid rgba(255,95,109,.4);
+    border-left: 4px solid var(--bad);
+    box-shadow: 0 0 28px -12px rgba(255,95,109,.55);
+    animation: riseIn .3s ease both;
+  }
+  .answer-head {
+    font-size: .7rem; letter-spacing: .14em; color: var(--bad);
+    text-transform: uppercase; margin-bottom: .5rem;
+  }
+  .answer-name {
+    font-size: 1.85rem; font-weight: 600; letter-spacing: .06em;
+    color: #fff; line-height: 1.15;
+    text-shadow: 0 0 26px rgba(255,95,109,.5);
+  }
+  .answer-rows {
+    display: flex; flex-wrap: wrap; gap: 7px; margin-top: .65rem;
+  }
+  .answer-rows span {
+    font-size: .78rem; color: var(--text); letter-spacing: .04em;
+    padding: .26rem .7rem; border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid var(--line-2);
+  }
+  .answer-hint {
+    margin-top: .7rem; font-size: .72rem; color: var(--text-2); letter-spacing: .04em;
+  }
+
   /* ---------------------------------------------------------- 侧栏 */
   .panel {
     position: relative;
@@ -1166,7 +1199,7 @@
      只有猜对时，才从屏幕中央弹出角色立绘。 */
   var revealTimer = null;
 
-  function showReveal(c) {
+  function showReveal(c, holdMs) {
     if (!c || !c.art) return;
     var layer = $("revealLayer"), img = $("revealImg");
     if (!layer || !img) return;
@@ -1183,7 +1216,7 @@
     layer.setAttribute("aria-hidden", "false");
 
     if (revealTimer) clearTimeout(revealTimer);
-    revealTimer = setTimeout(hideReveal, 1900);
+    revealTimer = setTimeout(hideReveal, holdMs || 1900);
   }
 
   function hideReveal() {
@@ -1516,7 +1549,7 @@
       updateComboVisual();
 
       if (isDaily) {
-        // 每日挑战：答错不结束，直接进下一题，最后统一结算
+        // 每日挑战：答错不结束，但要停够时间让人看清答案
         answered = true;
         disableChoices();
         message.textContent = "❌ 错了喵～正确答案：" + current.name + " · " + current.faction +
@@ -1524,16 +1557,29 @@
         message.className = "message fail";
         setTimeout(function () {
           if (!gameOver) { loadNewRound(); }
-        }, 1400);
+        }, 3000);
       } else if (attempts <= 0) {
         answered = true;
         gameOver = true;
         disableChoices();
-        message.textContent = "❌ 机会用尽。正确答案：" + current.name + " · " + current.faction +
-          " · " + current.hair + " · " + current.wtype + " 喵～";
+        // 失败后不自动跳走：把完整答案摆在最显眼的位置，让玩家看够
+        message.innerHTML =
+          '<div class="answer-card">' +
+            '<div class="answer-head">😿 机会用尽 · 正确答案</div>' +
+            '<div class="answer-name">' + esc(current.name) + "</div>" +
+            '<div class="answer-rows">' +
+              '<span>' + esc(current.faction) + "</span>" +
+              '<span>' + esc(current.role) + "</span>" +
+              '<span>' + esc(current.hair) + "发</span>" +
+              '<span>' + esc(current.wtype) + "</span>" +
+              '<span>' + current.pop + "★</span>" +
+            "</div>" +
+            '<div class="answer-hint">本局得分 ' + score + " · 点「重开」再来一局</div>" +
+          "</div>";
         message.className = "message fail";
         commitScore();
         SFX.over();
+        showReveal(current, 2600);   // 失败也把立绘亮出来，看得清楚
       } else {
         message.textContent = "❌ 卡奴再试试！还剩 " + attempts + " 次机会";
         message.className = "message fail";
