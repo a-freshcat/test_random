@@ -607,6 +607,9 @@
   .feedback-item .label { color: var(--muted); letter-spacing: .05em; }
   .feedback-item .correct { color: var(--ok); }
   .feedback-item .wrong { color: var(--bad); }
+  /* 还有剩余命时：字段对了也不给颜色，只给一个中性的点，
+     否则绿✅就等于泄题（哪些字段猜对了 + 线索 = 范围缩到极小）。 */
+  .feedback-item .neutral { color: var(--muted); }
 
   .message {
     margin-top: .6rem; font-size: .79rem; line-height: 1.55;
@@ -1521,11 +1524,19 @@
     var allOk = true;
     for (var j = 0; j < checks.length; j++) if (!checks[j][2]) allOk = false;
 
+    /* 这一题是否到此为止（决定能不能公布「哪个字段猜对了」）。
+       还有剩余命时绝不能标绿：绿色 ✅ 等于告诉玩家这个字段对了，
+       配上定位/性别线索足以把范围缩到极小，下一把就是送分。
+       只有这一题彻底结束（每日挑战 / 最后一条命用完 / 全对）才揭晓。 */
+    var willEndThisQuestion = allOk || isDaily || attempts - 1 <= 0;
+
     var html = "";
     for (var k = 0; k < checks.length; k++) {
+      var okField = checks[k][2];
+      var cls = okField ? (willEndThisQuestion ? "correct" : "neutral") : "wrong";
+      var mark = okField ? (willEndThisQuestion ? "✅" : "·") : "❌";
       html += '<div class="feedback-item"><span class="label">' + checks[k][0] + "</span>" +
-              '<span class="' + (checks[k][2] ? "correct" : "wrong") + '">' +
-              (checks[k][2] ? "✅" : "❌") + " " + esc(checks[k][1]) + "</span></div>";
+              '<span class="' + cls + '">' + mark + " " + esc(checks[k][1]) + "</span></div>";
     }
     feedbackArea.innerHTML = html;
 
@@ -1557,7 +1568,6 @@
       //   每日挑战 —— 答错立即公布，然后进下一题
       //   普通模式最后一条命用完 —— 公布，因为不再有下一轮
       // 还有剩余命时只标红错选，不给正确答案
-      var willEndThisQuestion = isDaily || attempts <= 0;
       markAnswers(current, willEndThisQuestion);
       // 答错不弹立绘：立绘是「猜对」的奖励
       SFX.wrong();
