@@ -353,13 +353,14 @@ HTML = u"""<!DOCTYPE html>
   }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 
-  .clue-list { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; }
+  .clue-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
   .clue {
     display: flex; align-items: baseline; gap: .5rem;
     font-size: .8rem; min-width: 0;
   }
   .clue .k {
-    color: var(--muted); flex: 0 0 2.9em; font-size: .74rem; letter-spacing: .05em;
+    color: var(--muted); flex: 0 0 auto; min-width: 3.6em;
+    font-size: .74rem; letter-spacing: .05em; white-space: nowrap;
   }
   .clue .v {
     color: var(--text); font-weight: 400; overflow: hidden;
@@ -789,26 +790,27 @@ __CHARS__
     refGrid.innerHTML = h;
   }
 
-  /* 谜面：交叉线索，绝不含答案字段 */
+  /* 谜面只给「定位 + 武器类型」——玩家真正记得住的两个属性。
+     数据验证：这两项把 20 人分成 14 组，最大一组 3 人，
+     能收窄范围但猜不出答案，剩下的靠玩家自己推。
+     刻意不给：武器名（唯一，等于给答案）、生日（唯一）、年龄+身高（唯一）、
+     人气星级（本来就不是官方数据，不能拿来出题）。 */
   function renderRiddle() {
     var c = current;
     var clues = [
-      ["年龄", c.age + " 岁"],
-      ["身高", c.height + " cm"],
-      ["生日", c.birthday],
-      ["武器", c.weapon + "（" + c.wtype + "）"]
+      ["定位", c.role],
+      ["武器类型", c.wtype]
     ];
     if (!isHard) clues.push(["性别", c.gender]);
     var h = "";
     for (var i = 0; i < clues.length; i++) {
-      var wide = (clues[i][0] === "武器") ? " wide" : "";
-      h += '<div class="clue' + wide + '"><span class="k">' + clues[i][0] +
+      h += '<div class="clue"><span class="k">' + clues[i][0] +
            '</span><span class="v">' + esc(clues[i][1]) + "</span></div>";
     }
     riddleText.innerHTML = h;
-    hintArea.textContent = isHard
-      ? "🔒 硬核：线索更少，多答武器类型与人气"
-      : "💡 参考表在右侧，可展开查看阵营与发色";
+    hintArea.innerHTML = isHard
+      ? '<span class="hint-text">🔍 宗教度提示：角色人气也是衡量的标准！</span>'
+      : '<span class="hint-text">💡 经典模式，无额外提示</span>';
   }
 
   function makePills(label, field, options, render, required) {
